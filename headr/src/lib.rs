@@ -1,4 +1,4 @@
-use clap::{Arg, ArgAction, Command};
+use clap::{builder::Str, Arg, ArgAction, Command};
 use std::{
     error::Error,
     fs::File,
@@ -70,7 +70,24 @@ pub fn run(config: Config) -> ResultType<()> {
     for filename in config.files {
         match open(&filename) {
             Err(err) => eprintln!("{}: {}", filename, err),
-            Ok(_) => println!("Opened {}", filename),
+            Ok(mut file) => {
+                if let Some(num_bytes) = config.bytes {
+                    let mut handle = file.take(num_bytes as u64);
+                    let mut buf = vec![0; num_bytes];
+                    let bytes_read = handle.read(&mut buf)?;
+                    print!("{}", String::from_utf8_lossy(&buf[..bytes_read]));
+                } else {
+                    let mut line = String::new();
+                    for _ in 0..config.lines {
+                        let bytes = file.read_line(&mut line)?;
+                        if bytes == 0 {
+                            break;
+                        }
+                        print!("{}", line);
+                        line.clear()
+                    }
+                }
+            }
         }
     }
     Ok(())
